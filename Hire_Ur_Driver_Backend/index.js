@@ -3,36 +3,38 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
-// Import routes
 const driverRoutes = require('./routes/driverRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
-const userRoutes = require('./routes/userRoutes'); // Optional if you plan to support users
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// ✅ Root route for testing
 app.get('/', (req, res) => {
   res.send('🚀 Hire Ur Driver Backend is Running!');
 });
 
-// Routes
 app.use('/api/drivers', driverRoutes);
 app.use('/api/bookings', bookingRoutes);
-app.use('/api/users', userRoutes); // Optional
+app.use('/api/auth', authRoutes);
 
-// Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {
-  dbName: 'hire_driver_app'
+  dbName: 'hire_ur_driver'
 }).then(() => {
-  console.log('MongoDB connected');
+  console.log('MongoDB connected successfully');
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }).catch((err) => {
   console.error('MongoDB connection failed:', err.message);
+  process.exit(1);
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ msg: 'Something went wrong!' });
 });

@@ -1,12 +1,12 @@
 // src/pages/AdminDashboard.js
 import React, { useState } from "react";
-import { 
-  Box, 
-  Typography, 
-  Card, 
-  CardContent, 
-  Grid, 
-  Tabs, 
+import {
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  Grid,
+  Tabs,
   Tab,
   Paper,
   Table,
@@ -17,7 +17,7 @@ import {
   TableRow,
   Avatar,
   IconButton,
-  Badge
+  Badge,
 } from "@mui/material";
 import {
   PeopleAlt,
@@ -27,7 +27,7 @@ import {
   Mail,
   Settings,
   ArrowDropDown,
-  Search
+  Search,
 } from "@mui/icons-material";
 
 const AdminDashboard = () => {
@@ -38,7 +38,6 @@ const AdminDashboard = () => {
     setTabValue(newValue);
   };
 
-  // Sample data
   const recentUsers = [
     { id: 1, name: "John Doe", email: "john@example.com", role: "User", status: "Active" },
     { id: 2, name: "Jane Smith", email: "jane@example.com", role: "Driver", status: "Pending" },
@@ -55,26 +54,25 @@ const AdminDashboard = () => {
   return (
     <Box sx={{ backgroundColor: "#f8f9fc", minHeight: "100vh" }}>
       {/* Header */}
-      <Box sx={{ 
-        backgroundColor: "white", 
+      <Box sx={{
+        backgroundColor: "white",
         boxShadow: "0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15)",
         py: 2,
         px: 4,
         display: "flex",
         justifyContent: "space-between",
-        alignItems: "center"
+        alignItems: "center",
       }}>
-        <Typography variant="h4" sx={{ 
+        <Typography variant="h4" sx={{
           fontWeight: "bold",
           color: "#5a5c69",
           display: "flex",
           alignItems: "center",
-          gap: 1
+          gap: 1,
         }}>
           <DirectionsCar sx={{ color: "#4e73df" }} />
           Admin Dashboard
         </Typography>
-        
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <IconButton>
             <Badge badgeContent={notifications} color="error">
@@ -90,22 +88,21 @@ const AdminDashboard = () => {
           </Box>
         </Box>
       </Box>
-
       {/* Main Content */}
       <Box sx={{ p: 4 }}>
         {/* Stats Cards */}
         <Grid container spacing={4} sx={{ mb: 4 }}>
           {stats.map((stat, index) => (
             <Grid item xs={12} sm={6} md={3} key={index}>
-              <Card sx={{ 
+              <Card sx={{
                 borderLeft: `0.25rem solid ${stat.color}`,
-                borderRadius: "0.35rem"
+                borderRadius: "0.35rem",
               }}>
                 <CardContent>
-                  <Box sx={{ 
+                  <Box sx={{
                     display: "flex",
                     justifyContent: "space-between",
-                    alignItems: "center"
+                    alignItems: "center",
                   }}>
                     <Box>
                       <Typography variant="body2" sx={{ color: stat.color }}>
@@ -115,14 +112,14 @@ const AdminDashboard = () => {
                         {stat.value}
                       </Typography>
                     </Box>
-                    <Box sx={{ 
+                    <Box sx={{
                       backgroundColor: `${stat.color}20`,
                       borderRadius: "50%",
                       width: 50,
                       height: 50,
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "center"
+                      justifyContent: "center",
                     }}>
                       {stat.icon}
                     </Box>
@@ -132,15 +129,14 @@ const AdminDashboard = () => {
             </Grid>
           ))}
         </Grid>
-
         {/* Tabs Section */}
         <Paper sx={{ mb: 4 }}>
-          <Tabs 
-            value={tabValue} 
+          <Tabs
+            value={tabValue}
             onChange={handleTabChange}
             sx={{
               "& .MuiTab-root": { fontWeight: 600 },
-              "& .Mui-selected": { color: "#4e73df !important" }
+              "& .Mui-selected": { color: "#4e73df !important" },
             }}
           >
             <Tab label="Overview" />
@@ -150,15 +146,14 @@ const AdminDashboard = () => {
             <Tab label="Reports" />
           </Tabs>
         </Paper>
-
         {/* Recent Users Table */}
         <Card sx={{ mb: 4 }}>
           <CardContent>
-            <Box sx={{ 
+            <Box sx={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              mb: 2
+              mb: 2,
             }}>
               <Typography variant="h6" sx={{ fontWeight: "bold" }}>
                 Recent Users
@@ -168,7 +163,6 @@ const AdminDashboard = () => {
                 <Settings sx={{ color: "#d1d3e2" }} />
               </Box>
             </Box>
-            
             <TableContainer>
               <Table>
                 <TableHead>
@@ -187,13 +181,13 @@ const AdminDashboard = () => {
                       <TableCell>{user.email}</TableCell>
                       <TableCell>{user.role}</TableCell>
                       <TableCell>
-                        <Box sx={{ 
+                        <Box sx={{
                           display: "inline-block",
                           px: 1,
                           py: 0.5,
                           borderRadius: 1,
                           backgroundColor: user.status === "Active" ? "#d4edda" : "#fff3cd",
-                          color: user.status === "Active" ? "#155724" : "#856404"
+                          color: user.status === "Active" ? "#155724" : "#856404",
                         }}>
                           {user.status}
                         </Box>
