@@ -3,7 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { TextField, Button, Container, Typography, Box, Alert } from "@mui/material";
 
-const LoginPage = () => {
+const LoginPage = ({ updateRole }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -19,14 +19,34 @@ const LoginPage = () => {
         password,
       });
 
+      console.log("Login Response:", response.data); // Log the API response
+
       const { token, role } = response.data;
+
+      if (!token || !role) {
+        throw new Error("Invalid response from server. Missing token or role.");
+      }
+
       localStorage.setItem("token", token);
       localStorage.setItem("role", role);
 
+      // Call updateRole to notify App.js about the login
+      if (updateRole) {
+        console.log("Calling updateRole...");
+        updateRole();
+      }
+
       // Redirect based on role
-      if (role==="user") navigate("/user-dashboard");
-      else if (role==="driver") navigate("/driver-dashboard");
-      else if (role==="admin") navigate("/admin-dashboard");
+      if (role === "user") {
+        console.log("Redirecting to /user-dashboard");
+        navigate("/user-dashboard");
+      } else if (role === "driver") {
+        console.log("Redirecting to /driver-dashboard");
+        navigate("/driver-dashboard");
+      } else if (role === "admin") {
+        console.log("Redirecting to /admin-dashboard");
+        navigate("/admin-dashboard");
+      }
     } catch (error) {
       console.error("Login failed", error.response?.data || error.message);
       setError(
