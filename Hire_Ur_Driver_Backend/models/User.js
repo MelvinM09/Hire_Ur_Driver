@@ -17,15 +17,15 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Please provide email'],
     unique: true,
-    lowercase: true, // Normalize email to lowercase
+    lowercase: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please provide a valid email'],
-    index: true // Improve query performance
+    index: true
   },
   password: {
     type: String,
     required: [true, 'Please provide password'],
     minlength: [6, 'Password must be at least 6 characters'],
-    select: false // Hide password by default in queries
+    select: false
   },
   role: {
     type: String,
@@ -38,15 +38,15 @@ const userSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-    index: true // Improve sorting/querying by creation date
+    index: true
   },
-  isActive: {
-    type: Boolean,
-    default: true // Allow deactivating users without deleting
+  isVerified: { 
+    type: Boolean, 
+    default: false 
   }
 });
 
-// Hash password before saving (configurable)
+// Hash password before saving
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
 
@@ -54,7 +54,6 @@ userSchema.pre('save', async function(next) {
     console.log('Password hashing disabled. Storing plaintext:', this.password);
   } else {
     this.password = await bcrypt.hash(this.password, 10);
-    console.log('Password hashed successfully');
   }
   next();
 });
@@ -62,17 +61,17 @@ userSchema.pre('save', async function(next) {
 // Method to compare password
 userSchema.methods.matchPassword = async function(enteredPassword) {
   if (DISABLE_PASSWORD_HASHING) {
-    return enteredPassword === this.password; // Plaintext comparison
+    return enteredPassword === this.password;
   }
-  return await bcrypt.compare(enteredPassword, this.password); // Hashed comparison
+  return await bcrypt.compare(enteredPassword, this.password);
 };
 
 // Method to generate signed JWT token
 userSchema.methods.getSignedJwtToken = function() {
   return jwt.sign(
-    { id: this._id, role: this.role, email: this.email }, // Include email in payload
+    { id: this._id, role: this.role, email: this.email },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRE || '30d' } // Default to 30 days if not set
+    { expiresIn: process.env.JWT_EXPIRE || '30d' }
   );
 };
 
@@ -85,6 +84,4 @@ userSchema.post('save', function(error, doc, next) {
   }
 });
 
-const User = mongoose.model('User', userSchema);
-
-module.exports = User;
+module.exports = mongoose.model('User', userSchema);

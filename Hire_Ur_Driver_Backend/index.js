@@ -21,10 +21,11 @@ app.use('/api/drivers', driverRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/auth', authRoutes);
 
+// MongoDB Connection with enhanced options
 mongoose.connect(process.env.MONGO_URI, {
   dbName: 'hire_ur_driver'
 }).then(() => {
-  console.log('MongoDB connected successfully');
+  console.log('MongoDB connected successfully to hire_ur_driver');
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
@@ -35,6 +36,23 @@ mongoose.connect(process.env.MONGO_URI, {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ msg: 'Something went wrong!' });
+  console.error('Error encountered:', err.stack);
+  res.status(500).json({ msg: 'Something went wrong on the server!' });
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Shutting down gracefully...');
+  mongoose.connection.close(() => {
+    console.log('MongoDB connection closed.');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received. Shutting down gracefully...');
+  mongoose.connection.close(() => {
+    console.log('MongoDB connection closed.');
+    process.exit(0);
+  });
 });

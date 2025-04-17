@@ -115,7 +115,7 @@ const RegisterPage = () => {
           >
             <MenuItem value="user">User</MenuItem>
             <MenuItem value="driver">Driver</MenuItem>
-            <MenuItem value="admin">Admin</MenuItem>
+            {/* Admin option removed to prevent public registration */}
           </Select>
           <Button
             type="submit"
