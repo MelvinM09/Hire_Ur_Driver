@@ -12,6 +12,8 @@ import {
   Alert
 } from "@mui/material";
 
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
     name: "",
@@ -41,27 +43,25 @@ const RegisterPage = () => {
       }
 
       const response = await axios.post(
-        "http://localhost:5000/api/auth/register",
+        `${API_URL}/api/auth/register`,
         formData,
         { headers: { "Content-Type": "application/json" } }
       );
 
-      // Check for the exact message returned by the backend
       if (response.data.msg === "OTP sent to your email") {
         localStorage.setItem("email", formData.email);
-        // Optionally keep the alert, but it's not necessary
-        // alert("OTP sent to your email. Please verify.");
-        navigate("/verify-otp"); // Redirect to OTP verification page
+        navigate("/verify-otp");
       } else {
         setError("Unexpected response from server: " + response.data.msg);
       }
     } catch (error) {
-      console.error("Registration error:", error.response?.data || error.message);
-      setError(
+      console.error("Registration error:", error.response?.data || error);
+      const errorMsg =
         error.response?.data?.msg ||
-        error.response?.data?.errors?.[0]?.msg ||
-        "Registration failed. Please try again."
-      );
+        error.response?.data?.errors?.map(e => e.msg).join(", ") ||
+        error.message ||
+        "Registration failed. Please try again.";
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -73,8 +73,8 @@ const RegisterPage = () => {
         <Typography variant="h4" gutterBottom>
           Register
         </Typography>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        <form onSubmit={handleRegister}>
+        {error && <Alert severity="error" sx={{ mb: 2, width: "100%" }}>{error}</Alert>}
+        <form onSubmit={handleRegister} style={{ width: "100%" }}>
           <TextField
             label="Name"
             name="name"

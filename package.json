@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "express-rate-limit": "^7.5.0",
+    "framer-motion": "^12.7.3"
+  }
+}

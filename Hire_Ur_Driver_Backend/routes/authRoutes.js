@@ -4,6 +4,7 @@ const { check, validationResult } = require('express-validator');
 const User = require('../models/User');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
+const rateLimit = require('express-rate-limit');
 
 // In-memory storage
 const unverifiedRegistrations = new Map();
@@ -12,12 +13,90 @@ const registrationAttempts = new Map();
 const OTP_EXPIRY_TIME = 10 * 60 * 1000; // 10 minutes
 const MAX_REGISTRATION_ATTEMPTS = 100;
 
-// Email transporter
+// Rate limiter for OTP requests
+const otpRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit to 5 requests per window
+  message: 'Too many OTP requests. Please try again later.'
+});
+
+// Email transporter (Gmail)
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_APP_PASSWORD
+  }
+});
+
+// Alternative: Ethereal for testing (uncomment to use)
+/*
+const transporter = nodemailer.createTransport({
+  host: 'smtp.ethereal.email',
+  port: 587,
+  auth: {
+    user: 'your-ethereal-user@ethereal.email', // Replace with Ethereal user
+    pass: 'your-ethereal-password' // Replace with Ethereal password
+  }
+});
+*/
+
+// Debug environment variables
+console.log('Gmail User:', process.env.GMAIL_USER);
+console.log('Gmail App Password:', process.env.GMAIL_APP_PASSWORD ? 'Set' : 'Not set');
+
+// Verify SMTP connection
+transporter.verify((error, success) => {
+  if (error) {
+    console.error('SMTP Connection Error:', error.stack);
+  } else {
+    console.log('SMTP Server is ready to send emails');
+  }
+});
+
+// Centralized email sending function with detailed error logging
+async function sendEmail(to, subject, text, html) {
+  const mailOptions = {
+    from: process.env.GMAIL_USER,
+    to,
+    subject,
+    text,
+    html
+  };
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Email sent successfully:', {
+      response: info.response,
+      messageId: info.messageId,
+      to,
+      subject
+    });
+    return { success: true, info };
+  } catch (error) {
+    console.error('Email sending failed:', {
+      error: error.message,
+      stack: error.stack,
+      code: error.code,
+      errno: error.errno,
+      syscall: error.syscall
+    });
+    throw new Error(`Failed to send email: ${error.message}`);
+  }
+}
+
+// Test email endpoint
+router.get('/test-email', async (req, res) => {
+  try {
+    await sendEmail(
+      'test@example.com', // Replace with your test email
+      'Test Email from Hire Ur Driver',
+      'This is a test email to verify Nodemailer configuration.',
+      '<strong>This is a test email to verify Nodemailer configuration.</strong>'
+    );
+    res.json({ msg: 'Test email sent successfully' });
+  } catch (err) {
+    console.error('Test email error:', err.stack);
+    res.status(500).json({ msg: err.message || 'Failed to send test email' });
   }
 });
 
@@ -46,6 +125,7 @@ function cleanupExpiredData() {
 
 // Registration endpoint
 router.post('/register', [
+  otpRequestLimiter,
   check('name', 'Name is required').not().isEmpty().trim(),
   check('email', 'Please include valid email').isEmail().normalizeEmail(),
   check('password', 'Password must be 6 or more characters').isLength({ min: 6 }).trim(),
@@ -86,23 +166,58 @@ router.post('/register', [
     unverifiedRegistrations.set(email.toLowerCase(), registrationData);
     registrationAttempts.set(email.toLowerCase(), attempts + 1);
 
-    const mailOptions = {
-      from: process.env.GMAIL_USER,
-      to: email,
-      subject: 'Your OTP for Registration',
-      text: `Your OTP is ${otp}. Valid for 10 minutes.`,
-      html: `<strong>Your OTP is ${otp}. Valid for 10 minutes.</strong>`
-    };
+    await sendEmail(
+      email,
+      'Your OTP for Registration',
+      `Your OTP is ${otp}. Valid for 10 minutes.`,
+      `<strong>Your OTP is ${otp}. Valid for 10 minutes.</strong>`
+    );
 
-    await transporter.sendMail(mailOptions);
     res.status(201).json({ msg: 'OTP sent to your email' });
   } catch (err) {
-    console.error('Registration error:', err);
-    res.status(500).json({ msg: 'Server error during registration' });
+    console.error('Registration error:', err.stack);
+    res.status(500).json({ msg: err.message || 'Server error during registration' });
   }
 });
 
-// Login endpoint - FIXED VERSION
+// Resend OTP endpoint
+router.post('/resend-otp', [
+  otpRequestLimiter,
+  check('email', 'Please include valid email').isEmail().normalizeEmail()
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { email } = req.body;
+
+  try {
+    const registrationData = unverifiedRegistrations.get(email.toLowerCase());
+    if (!registrationData) {
+      return res.status(400).json({ msg: 'No pending registration found for this email' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    registrationData.otp = otp;
+    registrationData.timestamp = Date.now();
+    unverifiedRegistrations.set(email.toLowerCase(), registrationData);
+
+    await sendEmail(
+      email,
+      'Your New OTP for Registration',
+      `Your new OTP is ${otp}. Valid for 10 minutes.`,
+      `<strong>Your new OTP is ${otp}. Valid for 10 minutes.</strong>`
+    );
+
+    res.status(200).json({ msg: 'New OTP sent to your email. Please verify.' });
+  } catch (err) {
+    console.error('Resend OTP error:', err.stack);
+    res.status(500).json({ msg: err.message || 'Server error during OTP resend' });
+  }
+});
+
+// Login endpoint
 router.post('/login', [
   check('email', 'Please include valid email').isEmail().normalizeEmail(),
   check('password', 'Password is required').exists().trim()
@@ -124,11 +239,6 @@ router.post('/login', [
       return res.status(400).json({ msg: 'Invalid credentials' });
     }
 
-    // Debug logs (can remove after testing)
-    console.log('Login attempt for:', user.email);
-    console.log('Stored hash:', user.password);
-    console.log('Input password:', password);
-
     const isMatch = await bcrypt.compare(password, user.password);
     
     if (!isMatch) {
@@ -147,7 +257,7 @@ router.post('/login', [
       }
     });
   } catch (err) {
-    console.error('Login error:', err);
+    console.error('Login error:', err.stack);
     res.status(500).json({ msg: 'Server error during login' });
   }
 });
@@ -204,13 +314,14 @@ router.post('/verify-otp', [
       }
     });
   } catch (err) {
-    console.error('OTP verification error:', err);
+    console.error('OTP verification error:', err.stack);
     res.status(500).json({ msg: 'Server error during OTP verification' });
   }
 });
 
 // OTP Login Request
 router.post('/request-login-otp', [
+  otpRequestLimiter,
   check('email', 'Please include valid email').isEmail().normalizeEmail()
 ], async (req, res) => {
   const errors = validationResult(req);
@@ -237,19 +348,17 @@ router.post('/request-login-otp', [
       timestamp: Date.now()
     });
 
-    const mailOptions = {
-      from: process.env.GMAIL_USER,
-      to: email,
-      subject: 'Your Login OTP',
-      text: `Your OTP is ${otp}. Valid for 10 minutes.`,
-      html: `<strong>Your OTP is ${otp}. Valid for 10 minutes.</strong>`
-    };
+    await sendEmail(
+      email,
+      'Your Login OTP',
+      `Your OTP is ${otp}. Valid for 10 minutes.`,
+      `<strong>Your OTP is ${otp}. Valid for 10 minutes.</strong>`
+    );
 
-    await transporter.sendMail(mailOptions);
     res.status(200).json({ msg: 'OTP sent to your email' });
   } catch (err) {
-    console.error('OTP request error:', err);
-    res.status(500).json({ msg: 'Server error during OTP request' });
+    console.error('OTP request error:', err.stack);
+    res.status(500).json({ msg: err.message || 'Server error during OTP request' });
   }
 });
 
@@ -296,8 +405,94 @@ router.post('/verify-login-otp', [
       }
     });
   } catch (err) {
-    console.error('OTP verification error:', err);
+    console.error('OTP verification error:', err.stack);
     res.status(500).json({ msg: 'Server error during OTP verification' });
+  }
+});
+
+// Password Reset Request Endpoint
+router.post('/forgot-password', [
+  otpRequestLimiter,
+  check('email', 'Please include a valid email').isEmail().normalizeEmail()
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({
+      email: { $regex: new RegExp(`^${email}$`, 'i') }
+    });
+
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    loginOtps.set(email.toLowerCase(), {
+      email: email.toLowerCase(),
+      otp,
+      userId: user._id,
+      timestamp: Date.now(),
+      purpose: 'password_reset'
+    });
+
+    await sendEmail(
+      email,
+      'Password Reset OTP',
+      `Your OTP for password reset is ${otp}. Valid for 10 minutes.`,
+      `<strong>Your OTP for password reset is ${otp}. Valid for 10 minutes.</strong>`
+    );
+
+    res.status(200).json({ msg: 'Password reset OTP sent to your email' });
+  } catch (err) {
+    console.error('Password reset request error:', err.stack);
+    res.status(500).json({ msg: err.message || 'Server error during password reset request' });
+  }
+});
+
+// Password Reset Verification and Update Endpoint
+router.post('/reset-password', [
+  check('email', 'Please include a valid email').isEmail().normalizeEmail(),
+  check('otp', 'OTP is required').not().isEmpty().trim(),
+  check('newPassword', 'New password must be 6 or more characters').isLength({ min: 6 }).trim()
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { email, otp, newPassword } = req.body;
+
+  try {
+    const otpData = loginOtps.get(email.toLowerCase());
+
+    if (!otpData || otpData.otp !== otp || otpData.purpose !== 'password_reset') {
+      return res.status(400).json({ msg: 'Invalid or incorrect OTP' });
+    }
+
+    if (Date.now() - otpData.timestamp > OTP_EXPIRY_TIME) {
+      loginOtps.delete(email.toLowerCase());
+      return res.status(400).json({ msg: 'OTP has expired' });
+    }
+
+    const user = await User.findById(otpData.userId);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    loginOtps.delete(email.toLowerCase());
+    res.status(200).json({ msg: 'Password reset successfully' });
+  } catch (err) {
+    console.error('Password reset error:', err.stack);
+    res.status(500).json({ msg: 'Server error during password reset' });
   }
 });
 
