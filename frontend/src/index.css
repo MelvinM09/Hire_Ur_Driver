@@ -1,0 +1,29 @@
+/* Reset all margins and padding globally */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Ensure html and body take full viewport */
+html, body {
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Remove default body styles from Vite template */
+body {
+  display: block;
+  line-height: 1;
+}
+
+/* Remove any potential spacing from root element */
+#root {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
